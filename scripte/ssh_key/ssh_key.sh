@@ -1,5 +1,5 @@
 #!/bin/bash
-# sookie-dev auf GitHub
+# Autor: sookie-dev auf GitHub
 # Dateien befinden sich unter https://github.homelab.global
 #
 # chmod +x /data/scripte/sshy_key.sh
