@@ -1,0 +1,19 @@
+# sookie-dev on GitHub
+# Dateien befinden sich unter https://github.homelab.global
+#
+# chmod +x /data/scripte/modem.service
+# ln -s /data/scripte/modem.service /etc/systemd/system/modem.service
+# systemctl enable modem.service
+
+[Unit]
+Description=Modem External Access
+After=network.target
+
+[Service]
+Type=simple
+RemainAfterExit=yes
+ExecStart=/data/scripte/modem.sh start <wan_interface> <LOCAL_IP> <MODEM_IP>
+ExecStop=/data/scripte/modem.sh stop <wan_interface> <LOCAL_IP> <MODEM_IP>
+
+[Install]
+WantedBy=multi-user.target
