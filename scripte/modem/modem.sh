@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # Autor: sookie-dev auf GitHub
 # Dateien befinden sich unter https://github.homelab.global
 #
