@@ -1,0 +1,18 @@
+# sookie-dev on GitHub
+# Dateien befinden sich unter https://github.homelab.global
+#
+# chmod +x /data/scripte/sshy_key.service
+# ln -s /data/scripte/ssh_key.service /etc/systemd/system/ssh_key.service
+# systemctl enable ssh_key.service
+
+[Unit]
+Description=SSH Key
+After=network.target
+
+[Service]
+Type=simple
+RemainAfterExit=yes
+ExecStart=/data/scripte/ssh_key.sh "ssh-rsa AAAAB3..."
+
+[Install]
+WantedBy=multi-user.target
