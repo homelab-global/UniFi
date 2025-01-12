@@ -15,7 +15,6 @@ ExecStart=/usr/local/bin/dyndns_cloudflare.sh update
 ExecStop=/usr/local/bin/dyndns_cloudflare.sh stop
 Restart=always
 RestartSec=10
-User=your_user_here  # Falls nötig, ändere zu deinem Benutzer
 Environment=PATH=/usr/bin:/usr/local/bin
 
 [Install]
