@@ -1,0 +1,13 @@
+# Autor: sookie-dev auf GitHub
+# Dateien befinden sich unter https://github.homelab.global
+
+[Unit]
+Description=Timer für Cloudflare DynDNS Aktualisierungsdienst
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+Unit=dyndns_cloudflare.service
+
+[Install]
+WantedBy=timers.target
