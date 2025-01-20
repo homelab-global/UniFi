@@ -1,129 +1,110 @@
 #!/bin/bash
-# Autor: sookie-dev auf GitHub
-# Dateien befinden sich unter https://github.homelab.global
-#
-# chmod +x /data/scripte/dyndns_cloudflare.sh
-#
-# Cloudflare API-Token (unter https://dash.cloudflare.com/profile/api-tokens erstellen)
-api_token=""
-# Subdomain, die aktualisiert werden soll (z. B. "example.subdomain.com")
-subdomain=""
-# Zeit zwischen Updates in Sekunden
-update_interval=300
-# IPv4-Aktualisierung aktivieren (ja/nein)
-update_ipv4="ja"
-# IPv6-Aktualisierung aktivieren (ja/nein)
-update_ipv6="ja"
-# URL für IPv4-Abfrage
-ipv4_check_url="ifconfig.co"
-# URL für IPv6-Abfrage
-ipv6_check_url="ifconfig.co"
-# ========================================================================
 
-# Funktion: Prüft, ob die Eingabe ja/nein korrekt ist
-validate_yes_no() {
-    local value="$1"
-    if [[ "$value" != "ja" && "$value" != "nein" ]]; then
-        echo "Fehler: Ungültiger Wert für $2. Erlaubt sind nur 'ja' oder 'nein'."
-        exit 1
+# Variablen
+API_TOKEN="dein-cloudflare-api-token"       # Dein API-Token
+RECORD_NAME="subdomain.deinedomain.de"      # Name der Subdomain
+DNS_TYPES=("A" "AAAA")                      # Typen der DNS-Einträge (A für IPv4, AAAA für IPv6)
+TTL=60                                      # TTL (Time To Live) in Sekunden
+PROXIED=false                               # Ob Cloudflare den Traffic proxied (true/false)
+
+# Öffentliche IPs ermitteln
+CURRENT_IPV4=$(curl -s https://ipv4.icanhazip.com | tr -d '\n')
+CURRENT_IPV6=$(curl -s https://ipv6.icanhazip.com | tr -d '\n')
+
+if [ -z "$CURRENT_IPV4" ] && [ -z "$CURRENT_IPV6" ]; then
+    echo "Fehler: Weder IPv4 noch IPv6 konnten ermittelt werden."
+    exit 1
+fi
+
+# Domainname aus RECORD_NAME extrahieren
+DOMAIN_NAME=$(echo "$RECORD_NAME" | awk -F. '{print $(NF-1)"."$NF}')
+
+# Zone-ID automatisch ermitteln
+ZONE_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$DOMAIN_NAME" \
+    -H "Authorization: Bearer $API_TOKEN" \
+    -H "Content-Type: application/json")
+
+ZONE_ID=$(echo "$ZONE_RESPONSE" | grep -o '"id":"[^"]*"' | head -n 1 | sed 's/"id":"\([^"]*\)"/\1/')
+
+if [ -z "$ZONE_ID" ]; then
+    echo "Fehler: Zone-ID für $DOMAIN_NAME konnte nicht ermittelt werden."
+    exit 1
+fi
+
+# Funktion zum Erstellen eines neuen DNS-Records
+create_record() {
+    local type=$1
+    local current_ip=$2
+
+    if [ -z "$current_ip" ]; then
+        echo "Keine IP-Adresse für Typ $type vorhanden. Überspringe..."
+        return
+    fi
+
+    CREATE_RESPONSE=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
+        -H "Authorization: Bearer $API_TOKEN" \
+        -H "Content-Type: application/json" \
+        --data "{\"type\":\"$type\",\"name\":\"$RECORD_NAME\",\"content\":\"$current_ip\",\"ttl\":$TTL,\"proxied\":$PROXIED}")
+
+    SUCCESS=$(echo "$CREATE_RESPONSE" | grep -o '"success":true')
+
+    if [ "$SUCCESS" == '"success":true' ]; then
+        echo "Ein neuer $type-Record für $RECORD_NAME wurde erfolgreich mit $current_ip erstellt."
+    else
+        echo "Fehler beim Erstellen des $type-Records: $(echo "$CREATE_RESPONSE" | grep -o '"message":"[^"]*"' | sed 's/"message":"\([^"]*\)"/\1/')"
     fi
 }
 
-# Eingaben validieren
-validate_yes_no "$update_ipv4" "update_ipv4"
-validate_yes_no "$update_ipv6" "update_ipv6"
+# Funktion zum Aktualisieren eines DNS-Records
+update_record() {
+    local type=$1
+    local current_ip=$2
 
-# Funktion: Hole Zone-ID von Cloudflare
-get_zone_id() {
-    curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$(echo "$subdomain" | awk -F\. '{print $(NF-1) FS $NF}')" \
-        -H "Authorization: Bearer $api_token" \
-        -H "Content-Type: application/json" | jq -r '.result[0].id'
-}
+    if [ -z "$current_ip" ]; then
+        echo "Keine IP-Adresse für Typ $type vorhanden. Überspringe..."
+        return
+    fi
 
-# Funktion: Aktualisiere DNS-Eintrag (A oder AAAA)
-update_dns_record() {
-    local record_type=$1
-    local ip=$2
-    local record=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records?type=$record_type&name=$subdomain" \
-        -H "Authorization: Bearer $api_token" \
+    # Aktuellen DNS-Record abrufen
+    RECORD=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?type=$type&name=$RECORD_NAME" \
+        -H "Authorization: Bearer $API_TOKEN" \
         -H "Content-Type: application/json")
 
-    if [[ $record == *"\"count\":0"* ]]; then
-        echo "Fehler: $subdomain existiert nicht auf Cloudflare."
-        return 1
+    RECORD_ID=$(echo "$RECORD" | grep -o '"id":"[^"]*"' | head -n 1 | sed 's/"id":"\([^"]*\)"/\1/')
+    RECORD_IP=$(echo "$RECORD" | grep -o '"content":"[^"]*"' | sed 's/"content":"\([^"]*\)"/\1/')
+
+    if [ -z "$RECORD_ID" ]; then
+        echo "Der $type-Record für $RECORD_NAME existiert nicht. Erstelle neuen Eintrag..."
+        create_record "$type" "$current_ip"
+        return
     fi
 
-    local current_ip=$(echo "$record" | jq -r '.result[0].content')
-    local record_id=$(echo "$record" | jq -r '.result[0].id')
+    # Prüfen, ob die IP aktualisiert werden muss
+    if [ "$current_ip" == "$RECORD_IP" ]; then
+        echo "Die IP des $type-Records ist bereits aktuell: $current_ip"
+        return
+    fi
 
-    if [[ "$ip" == "$current_ip" ]]; then
-        echo "Keine Änderung erforderlich. Die IP-Adresse ($ip) ist unverändert und erfordert kein Update."
+    # DNS-Record aktualisieren
+    UPDATE_RESPONSE=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$RECORD_ID" \
+        -H "Authorization: Bearer $API_TOKEN" \
+        -H "Content-Type: application/json" \
+        --data "{\"type\":\"$type\",\"name\":\"$RECORD_NAME\",\"content\":\"$current_ip\",\"ttl\":$TTL,\"proxied\":$PROXIED}")
+
+    SUCCESS=$(echo "$UPDATE_RESPONSE" | grep -o '"success":true')
+
+    if [ "$SUCCESS" == '"success":true' ]; then
+        echo "Der $type-Record $RECORD_NAME wurde erfolgreich auf $current_ip aktualisiert."
     else
-        local update=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records/$record_id" \
-            -H "Authorization: Bearer $api_token" \
-            -H "Content-Type: application/json" \
-            --data "{\"type\":\"$record_type\",\"name\":\"$subdomain\",\"content\":\"$ip\"}")
-
-        if [[ $update == *"\"success\":true"* ]]; then
-            echo "Erfolgreich aktualisiert: $record_type $subdomain von $current_ip auf $ip."
-        else
-            echo "Fehler bei der Aktualisierung von $record_type $subdomain."
-        fi
+        echo "Fehler bei der Aktualisierung des $type-Records: $(echo "$UPDATE_RESPONSE" | grep -o '"message":"[^"]*"' | sed 's/"message":"\([^"]*\)"/\1/')"
     fi
 }
 
-# Überprüfen, ob API-Token und Subdomain gesetzt sind
-[ -z "$api_token" ] && { echo "Fehler: API-Token ist nicht gesetzt!"; exit 1; }
-[ -z "$subdomain" ] && { echo "Fehler: Subdomain ist nicht gesetzt!"; exit 1; }
-
-# Hauptlogik basierend auf Argumenten
-case "$1" in
-update)
-    echo "Starte Cloudflare DDNS-Update für $subdomain..."
-    zone_id="" # Zone-ID wird nur abgefragt, wenn nötig
-
-    while true; do
-        # IPv4-Update
-        if [[ $update_ipv4 == "ja" ]]; then
-            ipv4=$(curl -s -4 https://"$ipv4_check_url")
-            if [[ $ipv4 =~ ^(([0-9]{1,3}\.){3}[0-9]{1,3})$ ]]; then
-                # DNS-Eintrag prüfen und aktualisieren
-                if [[ -z "$zone_id" ]]; then
-                    echo "Abrufen der Zone-ID..."
-                    zone_id=$(get_zone_id)
-                fi
-                update_dns_record "A" "$ipv4"
-            else
-                echo "Fehler: Keine gültige IPv4-Adresse gefunden."
-            fi
-        fi
-
-        # IPv6-Update
-        if [[ $update_ipv6 == "ja" ]]; then
-            ipv6=$(curl -s -6 https://"$ipv6_check_url")
-            if [[ $ipv6 =~ ^([0-9a-fA-F:]+)$ ]]; then
-                # DNS-Eintrag prüfen und aktualisieren
-                if [[ -z "$zone_id" ]]; then
-                    echo "Abrufen der Zone-ID..."
-                    zone_id=$(get_zone_id)
-                fi
-                update_dns_record "AAAA" "$ipv6"
-            else
-                echo "Fehler: Keine gültige IPv6-Adresse gefunden."
-            fi
-        fi
-
-        sleep $update_interval
-    done
-    ;;
-
-stop)
-    echo "Beende Cloudflare DDNS-Updater..."
-    pkill -f "$(basename "$0")"
-    ;;
-
-*)
-    echo "Nutzung: $0 {update|stop}"
-    exit 1
-    ;;
-esac
+# IPv4 und IPv6 separat aktualisieren oder erstellen
+for DNS_TYPE in "${DNS_TYPES[@]}"; do
+    if [ "$DNS_TYPE" == "A" ]; then
+        update_record "A" "$CURRENT_IPV4"
+    elif [ "$DNS_TYPE" == "AAAA" ]; then
+        update_record "AAAA" "$CURRENT_IPV6"
+    fi
+done
