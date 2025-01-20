@@ -1,4 +1,6 @@
 #!/bin/bash
+# Autor: sookie-dev auf GitHub
+# Dateien befinden sich unter https://github.homelab.global
 
 # Variablen
 API_TOKEN="dein-cloudflare-api-token"       # Dein API-Token
