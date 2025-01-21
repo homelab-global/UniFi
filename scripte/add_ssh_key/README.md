@@ -37,15 +37,15 @@ ExecStart=/data/scripte/add_ssh_keys.sh "ssh-rsa AAAAB3..." "ssh-ed25519 BBBB44.
 ### 4. Dateien mit Systemd verknüpfen
 Verlinke die heruntergeladenen Dateien ins Systemd-Verzeichnis:
 ```bash
-sudo ln -s /data/scripte/add_ssh_key.service /etc/systemd/system/add_ssh_key.service
+ln -s /data/scripte/add_ssh_key.service /etc/systemd/system/add_ssh_key.service
 ```
 
 ### 5. Dienst aktivieren und starten
 Lade die Systemd-Konfiguration neu und aktiviere den Dienst:
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable add_ssh_key.service
-sudo systemctl start add_ssh_key.service
+systemctl daemon-reload
+systemctl enable add_ssh_key.service
+systemctl start add_ssh_key.service
 ```
 
 ---
