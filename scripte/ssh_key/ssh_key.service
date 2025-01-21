@@ -1,7 +1,7 @@
 # Autor: sookie-dev auf GitHub
 # Dateien befinden sich unter https://github.homelab.global
 #
-# chmod +x /data/scripte/sshy_key.service
+# chmod +x /data/scripte/ssh_key.service
 # ln -s /data/scripte/ssh_key.service /etc/systemd/system/ssh_key.service
 # systemctl enable ssh_key.service
 
