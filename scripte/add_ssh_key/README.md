@@ -69,11 +69,9 @@ systemctl start add_ssh_key.service
 ---
 
 ## Lizenz
-
-Dieses Projekt steht unter der MIT-Lizenz. Weitere Details findest du in der Datei [LICENSE](https://github.com/homelab-global/UniFi/blob/main/LICENSE).
+Dieses Projekt wird unter der MIT-Lizenz veröffentlicht. Weitere Informationen findest du in der Datei [LICENSE](https://github.com/homelab-global/UniFi/blob/main/LICENSE).
 
 ---
 
 ## Beiträge
-
-Beiträge sind herzlich willkommen! Erstelle gerne ein Issue oder sende einen Pull Request ein.
+Beiträge und Verbesserungen sind herzlich willkommen! Erstelle ein [Issue](https://github.com/homelab-global/UniFi/issues) oder sende einen [Pull Request](https://github.com/homelab-global/UniFi/pulls) ein.
