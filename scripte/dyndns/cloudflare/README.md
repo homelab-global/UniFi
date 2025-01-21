@@ -1,67 +1,68 @@
-Dieses Repository enthält ein Bash-Skript (`dyndns_cloudflare.sh`), um DNS-Einträge (IPv4 und/oder IPv6) für eine angegebene Subdomain in Cloudflare zu aktualisieren. Das Skript sorgt dafür, dass der DNS-Eintrag mit der aktuellen öffentlichen IP-Adresse aktualisiert wird und erstellt automatisch den DNS-Eintrag, falls dieser noch nicht existiert.
+Dieses Repository enthält ein Bash-Skript (`dyndns_cloudflare.sh`) zur automatischen Aktualisierung von DNS-Einträgen (IPv4 und/oder IPv6) für eine angegebene Subdomain in Cloudflare. Das Skript sorgt dafür, dass der DNS-Eintrag immer mit der aktuellen öffentlichen IP-Adresse übereinstimmt und erstellt automatisch neue Einträge, falls diese noch nicht vorhanden sind.
 
-## Funktionen
-- Unterstützt sowohl IPv4 (`A`-Einträge) als auch IPv6 (`AAAA`-Einträge).
-- Erstellt automatisch fehlende DNS-Einträge.
-- Entwickelt für den Einsatz als systemd-Dienst mit Timer für periodische Updates.
-- Leichtgewichtig und nutzt nur Standardtools wie `curl`, `awk` und `grep`.
+## Features
+- **IPv4 und IPv6 Unterstützung**: Aktualisierung von `A`- und/oder `AAAA`-Einträgen.
+- **Automatische Erstellung von Einträgen**: Fehlende DNS-Einträge werden automatisch angelegt.
+- **Systemd-kompatibel**: Entwickelt für den Einsatz als systemd-Dienst mit Timer für periodische Updates.
+- **Leichtgewichtige Implementierung**: Verwendung von Standardtools wie `curl`, `awk` und `grep`.
+
+---
 
 ## Voraussetzungen
 
 ### Cloudflare API-Token
-Du benötigst ein Cloudflare API-Token mit folgenden Berechtigungen:
+Ein API-Token mit den folgenden Berechtigungen wird benötigt:
 - **Zone: Lesen**
 - **DNS: Bearbeiten**
 
-Erstelle ein API-Token über das [Cloudflare-Dashboard](https://dash.cloudflare.com/profile/api-tokens).
+Das Token kann im [Cloudflare-Dashboard](https://dash.cloudflare.com/profile/api-tokens) erstellt werden.
 
 ---
 
 ## Installation
 
-### 1. Ordner erstellen
-Erstelle den Zielordner für das Skript:
+### Schritt 1: Zielordner erstellen
+Erstelle einen Ordner für das Skript:
 ```bash
 mkdir -p /data/scripte
 ```
 
-### 2. Dateien herunterladen
-Lade die benötigten Dateien mit `curl` herunter:
+### Schritt 2: Dateien herunterladen
+Lade die benötigten Dateien herunter und stelle sicher, dass sie ausführbar sind:
 
-#### Skript herunterladen
+#### Skript
 ```bash
 curl -o /data/scripte/dyndns_cloudflare.sh https://raw.githubusercontent.com/homelab-global/UniFi/refs/heads/main/scripte/dyndns/cloudflare/dyndns_cloudflare.sh
 chmod +x /data/scripte/dyndns_cloudflare.sh
 ```
 
-#### Dienst-Datei herunterladen
+#### Dienst-Datei
 ```bash
 curl -o /data/scripte/dyndns_cloudflare.service https://raw.githubusercontent.com/homelab-global/UniFi/refs/heads/main/scripte/dyndns/cloudflare/dyndns_cloudflare.service
 ```
 
-#### Timer-Datei herunterladen
+#### Timer-Datei
 ```bash
 curl -o /data/scripte/dyndns_cloudflare.timer https://raw.githubusercontent.com/homelab-global/UniFi/refs/heads/main/scripte/dyndns/cloudflare/dyndns_cloudflare.timer
 ```
 
-### 3. Script anpassen
-Die folgenden Variablen in `dyndns_cloudflare.sh` müssen angepasst werden:
-
+### Schritt 3: Skript anpassen
+Bearbeite die folgenden Variablen in `dyndns_cloudflare.sh` entsprechend deiner Anforderungen:
 - `API_TOKEN`: Dein Cloudflare API-Token.
-- `RECORD_NAME`: Die Subdomain, die aktualisiert werden soll (z. B. `subdomain.example.com`).
-- `DNS_TYPES`: Gibt an, welche DNS-Eintragstypen aktualisiert werden (z. B. `("A" "AAAA")` für sowohl IPv4 als auch IPv6).
-- `TTL`: Die Time-To-Live für den DNS-Eintrag (z. B. `60` für auto-managed).
-- `PROXIED`: Ob Cloudflare’s Proxy aktiviert wird (`true` oder `false`)
+- `RECORD_NAME`: Die zu aktualisierende Subdomain (z. B. `subdomain.example.com`).
+- `DNS_TYPES`: Gibt an, welche DNS-Typen aktualisiert werden (z. B. `("A" "AAAA")` für IPv4 und IPv6).
+- `TTL`: Time-to-Live-Wert (z. B. `60` für automatisch verwaltetes TTL).
+- `PROXIED`: Aktiviert oder deaktiviert Cloudflare Proxy (`true` oder `false`).
 
-### 4. Dateien mit Systemd verknüpfen
+### Schritt 4: Systemd konfigurieren
 Verlinke die heruntergeladenen Dateien ins Systemd-Verzeichnis:
 ```bash
 ln -s /data/scripte/dyndns_cloudflare.service /etc/systemd/system/dyndns_cloudflare.service
 ln -s /data/scripte/dyndns_cloudflare.timer /etc/systemd/system/dyndns_cloudflare.timer
 ```
 
-### 5. Dienst aktivieren und starten
-Lade die Systemd-Konfiguration neu und aktiviere den Dienst:
+### Schritt 5: Dienst aktivieren und starten
+Aktualisiere die Systemd-Konfiguration und aktiviere den Timer:
 ```bash
 systemctl daemon-reload
 systemctl enable dyndns_cloudflare.timer
@@ -72,21 +73,18 @@ systemctl start dyndns_cloudflare.timer
 
 ## Verwendung
 
--
-
-### Status und Logs
-
-- Timer-Status:
+### Status und Logs prüfen
+- **Timer-Status anzeigen**:
   ```bash
   systemctl status dyndns_cloudflare.timer
   ```
 
-- Dienst-Status:
+- **Dienst-Status anzeigen**:
   ```bash
   systemctl status dyndns_cloudflare.service
   ```
 
-- Logs:
+- **Logs anzeigen**:
   ```bash
   journalctl -u dyndns_cloudflare.service
   ```
@@ -94,11 +92,9 @@ systemctl start dyndns_cloudflare.timer
 ---
 
 ## Lizenz
-
-Dieses Projekt steht unter der MIT-Lizenz. Weitere Details findest du in der Datei [LICENSE](https://github.com/homelab-global/UniFi/blob/main/LICENSE).
+Dieses Projekt wird unter der MIT-Lizenz veröffentlicht. Weitere Informationen findest du in der Datei [LICENSE](https://github.com/homelab-global/UniFi/blob/main/LICENSE).
 
 ---
 
 ## Beiträge
-
-Beiträge sind herzlich willkommen! Erstelle gerne ein Issue oder sende einen Pull Request ein.
+Beiträge und Verbesserungen sind herzlich willkommen! Erstelle ein [Issue](https://github.com/homelab-global/UniFi/issues) oder sende einen [Pull Request](https://github.com/homelab-global/UniFi/pulls) ein.
