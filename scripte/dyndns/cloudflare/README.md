@@ -95,7 +95,7 @@ systemctl start dyndns_cloudflare.timer
 
 ## Lizenz
 
-Dieses Projekt steht unter der MIT-Lizenz. Weitere Details findest du in der Datei [LICENSE](LICENSE).
+Dieses Projekt steht unter der MIT-Lizenz. Weitere Details findest du in der Datei [LICENSE](https://github.com/homelab-global/UniFi/blob/main/LICENSE).
 
 ---
 
