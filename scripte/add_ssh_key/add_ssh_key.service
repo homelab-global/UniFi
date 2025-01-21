@@ -1,0 +1,16 @@
+# Autor: sookie-dev auf GitHub
+# Dateien befinden sich unter https://github.homelab.global
+
+[Unit]
+Description=Add SSH Keys Service
+After=network.target
+
+[Service]
+ExecStart=/data/scripte/add_ssh_keys.sh "ssh-rsa AAAAB3..." "ssh-ed25519 BBBB44..."
+Type=oneshot
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
