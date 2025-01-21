@@ -1,0 +1,15 @@
+# Autor: sookie-dev auf GitHub
+# Dateien befinden sich unter https://github.homelab.global
+
+[Unit]
+Description=Modem External Access for Multiple Interfaces
+After=network.target
+
+[Service]
+Type=simple
+RemainAfterExit=yes
+ExecStart=/data/scripte/modem_access.sh start
+ExecStop=/data/scripte/modem_access.sh stop
+
+[Install]
+WantedBy=multi-user.target
