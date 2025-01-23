@@ -1,8 +1,10 @@
-Dieses Repository stellt ein professionelles Bash-Skript und einen systemd-Dienst zur Verfügung, mit dem MACVLAN-Schnittstellen verwaltet werden können, um den Zugriff auf ein Modem über WAN-Interfaces zu ermöglichen. Das Skript unterstützt die Konfiguration mehrerer Interfaces, die zentral in einer Konfigurationsdatei definiert werden.
+Dieses Repository stellt ein professionelles Bash-Skript und einen systemd-Dienst zur Verfügung, mit dem MACVLAN-Schnittstellen verwaltet werden können, um den Zugriff auf ein Modem über WAN-Interfaces zu ermöglichen. Das Skript unterstützt die Konfiguration mehrerer Interfaces, Es unterstützt sowohl vordefinierte Modemkonfigurationen als auch manuelle Einträge direkt in der Konfigurationsdatei.
 
 ## Funktionen
 - **Unterstützung mehrerer Interfaces**: Effiziente Verwaltung und Konfiguration von MACVLAN-Interfaces.
 - **Dynamische Konfiguration**: Einfache Definition von WAN-Interfaces, lokalen IPs und Modem-IPs über eine Konfigurationsdatei.
+- **Manuelle Konfiguration**: Individuelle Modems lassen sich direkt in modem_access.conf angeben.
+- **Vordefinierte Modemkonfigurationen**: Modems können in der Datei modem_access.db definiert werden.
 - **Automatische NAT-Einrichtung**: Verwaltung von iptables-NAT-Regeln für reibungslosen Zugriff.
 - **Fehlerbehandlung**: Ausführliche Rückmeldungen bei Konfigurationsproblemen.
 - **Systemd-Dienstintegration**: Nahtlose Steuerung von Start und Stopp des Skripts.
@@ -34,20 +36,30 @@ curl -o /data/scripte/modem_access.service https://raw.githubusercontent.com/hom
 #### Konfigurationsdatei herunterladen
 ```bash
 curl -o /data/scripte/modem_access.conf https://raw.githubusercontent.com/homelab-global/UniFi/refs/heads/main/scripte/modem_access/modem_access.conf
+curl -o /data/scripte/modem_access.db https://raw.githubusercontent.com/homelab-global/UniFi/refs/heads/main/scripte/modem_access/modem_access.db
+
 ```
 
 ### 3. Konfiguration anpassen
 Bearbeiten Sie die Datei `modem_access.conf`, um Ihre Schnittstellen zu definieren:
 
 ```ini
-# Struktur: <WAN_INTERFACE>,<LOKALE_IP>,<MODEM_IP>
-# <WAN_INTERFACE>: Name des Netzwerkinterfaces (z. B. eth0, eth1)
-# <LOKALE_IP>: Die lokale IP-Adresse, die für das Modem verwendet wird (ohne Subnetzmaske)
-# <MODEM_IP>: Die IP-Adresse des Modems
+# Konfigurationsdatei für modem_access.sh
+# Format Vordefiniertes Modem: <WAN_INTERFACE>,<MODEM_NAME>
+# Beispieleintrag
+# Vordefiniertes Modem
+# eth4,Telekom_Glasfasermodem_2
+# 
+# Manuelles Modem: <WAN_INTERFACE>,<MODEM_IP>,<LOKALE_IP>
+# Beispieleintrag
+# eth4,192.168.1.2,192.168.1.1
+# eth5,192.168.2.2,192.168.2.1
+```
 
-# Beispieleinträge:
-eth0,192.168.1.2,192.168.1.1
-eth1,192.168.2.2,192.168.2.1
+```ini
+# Datei für vordefinierte Modemkonfigurationen
+# Format: <MODEM_NAME>,<MODEM_IP>,<LOKALE_IP>
+Telekom_Glasfasermodem_2,192.168.100.1,192.168.100.254
 ```
 
 ### 4. Dateien mit Systemd verknüpfen
