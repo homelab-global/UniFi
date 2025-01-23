@@ -84,12 +84,12 @@ Das Skript und der Dienst können über Systemd gesteuert werden:
 
 ### Starten der Konfiguration
 ```bash
-sudo systemctl start modem_access.service
+systemctl start modem_access.service
 ```
 
 ### Stoppen der Konfiguration
 ```bash
-sudo systemctl stop modem_access.service
+systemctl stop modem_access.service
 ```
 
 ### Status und Logs anzeigen
