@@ -1,0 +1,6 @@
+# Autor: sookie-dev auf GitHub
+# Dateien befinden sich unter https://github.homelab.global
+#
+# Datei für vordefinierte Modemkonfigurationen
+# Format: <MODEM_NAME>,<MODEM_IP>,<LOKALE_IP>
+Telekom_Glasfasermodem_2,192.168.100.1,192.168.100.254
