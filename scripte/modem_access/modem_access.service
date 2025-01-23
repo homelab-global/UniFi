@@ -2,14 +2,16 @@
 # Dateien befinden sich unter https://github.homelab.global
 
 [Unit]
-Description=Modem External Access for Multiple Interfaces
+Description=Modem External Access for Multiple WAN Interfaces
 After=network.target
+Wants=network.target
 
 [Service]
 Type=simple
 RemainAfterExit=yes
-ExecStart=/data/scripte/modem_access.sh start
-ExecStop=/data/scripte/modem_access.sh stop
+ExecStart=/data/scripte/modem.sh start
+ExecStop=/data/scripte/modem.sh stop
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
