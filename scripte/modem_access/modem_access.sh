@@ -3,17 +3,36 @@
 # Dateien befinden sich unter https://github.homelab.global
 
 CONFIG_FILE="/data/scripte/modem_access.conf"
+MODEMS_FILE="/data/scripte/modem_access.db"
 DEFAULT_SUBNET_MASK="/24"  # Standard-Subnetzmaske
 
 # Befehle und Variablen definieren
 IPT=$(command -v iptables)
 IP_CMD=$(command -v ip)
 
-# Überprüfen, ob die Konfigurationsdatei existiert
+# Überprüfen, ob die notwendigen Befehle verfügbar sind
+if [[ -z "$IPT" || -z "$IP_CMD" ]]; then
+    echo "Fehler: Benötigte Befehle iptables und ip sind nicht verfügbar. Bitte installieren." >&2
+    exit 1
+fi
+
+# Überprüfen, ob die Konfigurationsdateien existieren
 if [[ ! -f "$CONFIG_FILE" ]]; then
     echo "Fehler: Konfigurationsdatei $CONFIG_FILE nicht gefunden." >&2
     exit 1
 fi
+
+if [[ ! -f "$MODEMS_FILE" ]]; then
+    echo "Fehler: Datei mit Modemkonfigurationen $MODEMS_FILE nicht gefunden." >&2
+    exit 1
+fi
+
+# Vordefinierte Modems aus Datei lesen
+declare -A PREDEFINED_MODEMS
+while IFS=',' read -r MODEM_NAME MODEM_IP LOCAL_IP || [[ -n "$MODEM_NAME" ]]; do
+    [[ "$MODEM_NAME" =~ ^#.*$ || -z "$MODEM_NAME" ]] && continue  # Kommentare und leere Zeilen ignorieren
+    PREDEFINED_MODEMS["$MODEM_NAME"]="$MODEM_IP,$LOCAL_IP"
+done < "$MODEMS_FILE"
 
 # Fehlerbehandlungsfunktion
 handle_error() {
@@ -21,44 +40,64 @@ handle_error() {
     exit 1
 }
 
+# Funktion zur Verarbeitung von Modemkonfigurationen
+process_modem() {
+    local wan_interface="$1"
+    local modem_ip="$2"
+    local local_ip="$3"
+
+    LOKALE_IP_WITH_MASK="${local_ip}${DEFAULT_SUBNET_MASK}"
+    echo "Konfiguriere $wan_interface.modem mit Modem-IP=$modem_ip, Lokale-IP=$local_ip"
+
+    $IP_CMD link add name ${wan_interface}.modem link ${wan_interface} type macvlan || handle_error "Fehler beim Erstellen von ${wan_interface}.modem"
+    $IP_CMD addr add ${LOKALE_IP_WITH_MASK} dev ${wan_interface}.modem || handle_error "Fehler beim Hinzufügen der IP ${local_ip} zu ${wan_interface}.modem"
+    $IP_CMD link set ${wan_interface}.modem up || handle_error "Fehler beim Aktivieren von ${wan_interface}.modem"
+
+    $IPT -t nat -I POSTROUTING 1 -o ${wan_interface}.modem -d ${modem_ip} -j MASQUERADE || handle_error "Fehler beim Hinzufügen der NAT-Regel"
+}
+
 # Hauptlogik basierend auf der Aktion
 case "$1" in
   start)
     echo "Starte Konfiguration für alle MACVLAN-Interfaces..."
-    while IFS=',' read -r WAN_INTERFACE LOKALE_IP MODEM_IP || [[ -n "$WAN_INTERFACE" ]]; do
+    while IFS=',' read -r WAN_INTERFACE FIRST_ARG SECOND_ARG || [[ -n "$WAN_INTERFACE" ]]; do
         # Kommentare und leere Zeilen überspringen
         [[ "$WAN_INTERFACE" =~ ^#.*$ || -z "$WAN_INTERFACE" ]] && continue
-        
-        # Lokale IP-Adresse mit Subnetzmaske erweitern
-        LOKALE_IP_WITH_MASK="${LOKALE_IP}${DEFAULT_SUBNET_MASK}"
-        echo "Konfiguriere ${WAN_INTERFACE}.modem mit lokaler IP ${LOKALE_IP_WITH_MASK} und Modem-IP ${MODEM_IP}..."
 
-        # MACVLAN-Interface erstellen
-        $IP_CMD link add name ${WAN_INTERFACE}.modem link ${WAN_INTERFACE} type macvlan || handle_error "Erstellung des MACVLAN-Interfaces fehlgeschlagen: ${WAN_INTERFACE}.modem"
-        $IP_CMD addr add ${LOKALE_IP_WITH_MASK} dev ${WAN_INTERFACE}.modem || handle_error "Zuweisung der IP-Adresse fehlgeschlagen: ${WAN_INTERFACE}.modem"
-        $IP_CMD link set ${WAN_INTERFACE}.modem up || handle_error "Aktivierung des Interfaces fehlgeschlagen: ${WAN_INTERFACE}.modem"
-
-        # NAT-Regel hinzufügen
-        $IPT -t nat -I POSTROUTING 1 -o ${WAN_INTERFACE}.modem -d ${MODEM_IP} -j MASQUERADE || handle_error "Hinzufügen der NAT-Regel fehlgeschlagen: ${WAN_INTERFACE}.modem"
+        if [[ -n "${PREDEFINED_MODEMS[$FIRST_ARG]}" ]]; then
+            # Verarbeite vordefiniertes Modem
+            IFS=',' read -r modem_ip local_ip <<<"${PREDEFINED_MODEMS[$FIRST_ARG]}"
+            process_modem "$WAN_INTERFACE" "$modem_ip" "$local_ip"
+        else
+            # Verarbeite manuelle Konfiguration
+            process_modem "$WAN_INTERFACE" "$FIRST_ARG" "$SECOND_ARG"
+        fi
     done < "$CONFIG_FILE"
     echo "Alle Konfigurationen erfolgreich angewendet."
     ;;
 
   stop)
     echo "Beende Konfiguration für alle MACVLAN-Interfaces..."
-    while IFS=',' read -r WAN_INTERFACE LOKALE_IP MODEM_IP || [[ -n "$WAN_INTERFACE" ]]; do
+    while IFS=',' read -r WAN_INTERFACE FIRST_ARG SECOND_ARG || [[ -n "$WAN_INTERFACE" ]]; do
         # Kommentare und leere Zeilen überspringen
         [[ "$WAN_INTERFACE" =~ ^#.*$ || -z "$WAN_INTERFACE" ]] && continue
 
-        # Lokale IP-Adresse mit Subnetzmaske erweitern
-        LOKALE_IP_WITH_MASK="${LOKALE_IP}${DEFAULT_SUBNET_MASK}"
-        echo "Entferne Konfiguration von ${WAN_INTERFACE}.modem..."
+        if [[ -n "${PREDEFINED_MODEMS[$FIRST_ARG]}" ]]; then
+            # Verarbeite vordefiniertes Modem
+            IFS=',' read -r modem_ip local_ip <<<"${PREDEFINED_MODEMS[$FIRST_ARG]}"
+            LOKALE_IP_WITH_MASK="${local_ip}${DEFAULT_SUBNET_MASK}"
+        else
+            # Verarbeite manuelle Konfiguration
+            modem_ip="$FIRST_ARG"
+            local_ip="$SECOND_ARG"
+            LOKALE_IP_WITH_MASK="${local_ip}${DEFAULT_SUBNET_MASK}"
+        fi
 
-        # MACVLAN-Interface entfernen und NAT-Regel löschen
-        $IP_CMD link set ${WAN_INTERFACE}.modem down || handle_error "Deaktivierung des Interfaces fehlgeschlagen: ${WAN_INTERFACE}.modem"
-        $IP_CMD addr del ${LOKALE_IP_WITH_MASK} dev ${WAN_INTERFACE}.modem || handle_error "Entfernung der IP-Adresse fehlgeschlagen: ${WAN_INTERFACE}.modem"
-        $IP_CMD link delete dev ${WAN_INTERFACE}.modem || handle_error "Löschen des Interfaces fehlgeschlagen: ${WAN_INTERFACE}.modem"
-        $IPT -t nat -D POSTROUTING -o ${WAN_INTERFACE}.modem -d ${MODEM_IP} -j MASQUERADE || handle_error "Löschen der NAT-Regel fehlgeschlagen: ${WAN_INTERFACE}.modem"
+        echo "Entferne Konfiguration von ${WAN_INTERFACE}.modem..."
+        $IP_CMD link set ${WAN_INTERFACE}.modem down || handle_error "Fehler beim Deaktivieren von ${WAN_INTERFACE}.modem"
+        $IP_CMD addr del ${LOKALE_IP_WITH_MASK} dev ${WAN_INTERFACE}.modem || handle_error "Fehler beim Entfernen der IP-Adresse von ${WAN_INTERFACE}.modem"
+        $IP_CMD link delete dev ${WAN_INTERFACE}.modem || handle_error "Fehler beim Löschen von ${WAN_INTERFACE}.modem"
+        $IPT -t nat -D POSTROUTING -o ${WAN_INTERFACE}.modem -d ${modem_ip} -j MASQUERADE || handle_error "Fehler beim Entfernen der NAT-Regel"
     done < "$CONFIG_FILE"
     echo "Alle Konfigurationen erfolgreich entfernt."
     ;;
