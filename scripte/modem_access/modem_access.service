@@ -9,8 +9,8 @@ Wants=network.target
 [Service]
 Type=simple
 RemainAfterExit=yes
-ExecStart=/data/scripte/modem.sh start
-ExecStop=/data/scripte/modem.sh stop
+ExecStart=/data/scripte/modem_access.sh start
+ExecStop=/data/scripte/modem_access.sh stop
 Restart=on-failure
 
 [Install]
