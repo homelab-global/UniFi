@@ -2,6 +2,10 @@
 # Autor: sookie-dev auf GitHub
 # Dateien befinden sich unter https://github.homelab.global
 
+#!/bin/bash
+# Autor: sookie-dev auf GitHub
+# Unterstützt vordefinierte Modems aus der Datei modem_access.db und manuelle Konfigurationen
+
 CONFIG_FILE="/data/scripte/modem_access.conf"
 MODEMS_FILE="/data/scripte/modem_access.db"
 DEFAULT_SUBNET_MASK="/24"  # Standard-Subnetzmaske
@@ -15,6 +19,14 @@ if [[ -z "$IPT" || -z "$IP_CMD" ]]; then
     echo "Fehler: Benötigte Befehle iptables und ip sind nicht verfügbar. Bitte installieren." >&2
     exit 1
 fi
+
+# Funktion zur Überprüfung auf MACVLAN-Unterstützung
+check_macvlan_support() {
+    if ! lsmod | grep -q macvlan; then
+        echo "Fehler: Der Kernel unterstützt MACVLAN nicht oder das Modul 'macvlan' ist nicht verfügbar." >&2
+        exit 1
+    fi
+}
 
 # Überprüfen, ob die Konfigurationsdateien existieren
 if [[ ! -f "$CONFIG_FILE" ]]; then
@@ -59,6 +71,9 @@ process_modem() {
 # Hauptlogik basierend auf der Aktion
 case "$1" in
   start)
+    # Überprüfen, ob MACVLAN unterstützt wird
+    check_macvlan_support
+
     echo "Starte Konfiguration für alle MACVLAN-Interfaces..."
     while IFS=',' read -r WAN_INTERFACE FIRST_ARG SECOND_ARG || [[ -n "$WAN_INTERFACE" ]]; do
         # Kommentare und leere Zeilen überspringen
