@@ -2,11 +2,8 @@
 # Autor: sookie-dev auf GitHub
 # Dateien befinden sich unter https://github.homelab.global
 
-# Pfad des aktuellen Skripts ermitteln
-SCRIPT_DIR=$(dirname "$(realpath "$0")")
-
 # Konfigurationsdatei definieren
-CONFIG_FILE="$SCRIPT_DIR/dyndns_cloudflare.conf"
+CONFIG_FILE="$(dirname "$(realpath "$0")")/dyndns_cloudflare.conf"
 
 # Prüfen, ob die Konfigurationsdatei existiert
 if [[ -f "$CONFIG_FILE" ]]; then
