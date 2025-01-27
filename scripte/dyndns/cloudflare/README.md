@@ -30,24 +30,18 @@ mkdir -p /data/scripte
 ### Schritt 2: Dateien herunterladen
 Lade die benötigten Dateien herunter und stelle sicher, dass sie ausführbar sind:
 
-#### Skript
 ```bash
 curl -o /data/scripte/dyndns_cloudflare.sh https://raw.githubusercontent.com/homelab-global/UniFi/refs/heads/main/scripte/dyndns/cloudflare/dyndns_cloudflare.sh
 chmod +x /data/scripte/dyndns_cloudflare.sh
-```
-
-#### Dienst-Datei
-```bash
+curl -o /data/scripte/dyndns_cloudflare.conf https://raw.githubusercontent.com/homelab-global/UniFi/refs/heads/main/scripte/dyndns/cloudflare/dyndns_cloudflare.sh
+chmod 600 /data/scripte/dyndns_cloudflare.conf
 curl -o /data/scripte/dyndns_cloudflare.service https://raw.githubusercontent.com/homelab-global/UniFi/refs/heads/main/scripte/dyndns/cloudflare/dyndns_cloudflare.service
-```
-
-#### Timer-Datei
-```bash
 curl -o /data/scripte/dyndns_cloudflare.timer https://raw.githubusercontent.com/homelab-global/UniFi/refs/heads/main/scripte/dyndns/cloudflare/dyndns_cloudflare.timer
+
 ```
 
-### Schritt 3: Skript anpassen
-Bearbeite die folgenden Variablen in `dyndns_cloudflare.sh` entsprechend deiner Anforderungen:
+### Schritt 3: Konfiguration anpassen
+Bearbeiten Sie die Datei `dyndns_cloudflare.conf`, um Ihre Schnittstellen zu definieren:
 - `API_TOKEN`: Dein Cloudflare API-Token.
 - `RECORD_NAME`: Die zu aktualisierende Subdomain (z. B. `subdomain.example.com`).
 - `DNS_TYPES`: Gibt an, welche DNS-Typen aktualisiert werden (z. B. `("A" "AAAA")` für IPv4 und IPv6).
