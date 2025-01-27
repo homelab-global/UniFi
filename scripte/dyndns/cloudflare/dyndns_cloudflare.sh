@@ -2,12 +2,20 @@
 # Autor: sookie-dev auf GitHub
 # Dateien befinden sich unter https://github.homelab.global
 
-# Variablen
-API_TOKEN="dein-cloudflare-api-token"       # Dein API-Token
-RECORD_NAME="subdomain.deinedomain.de"      # Name der Subdomain
-DNS_TYPES=("A" "AAAA")                      # Typen der DNS-Einträge (A für IPv4, AAAA für IPv6)
-TTL=60                                      # TTL (Time To Live) in Sekunden
-PROXIED=false                               # Ob Cloudflare den Traffic proxied (true/false)
+# Pfad des aktuellen Skripts ermitteln
+SCRIPT_DIR=$(dirname "$(realpath "$0")")
+
+# Konfigurationsdatei definieren
+CONFIG_FILE="$SCRIPT_DIR/dyndns_cloudflare.conf"
+
+# Prüfen, ob die Konfigurationsdatei existiert
+if [[ -f "$CONFIG_FILE" ]]; then
+    # Konfigurationsdatei laden
+    source "$CONFIG_FILE"
+else
+    echo "Konfigurationsdatei nicht gefunden: $CONFIG_FILE"
+    exit 1
+fi
 
 # Öffentliche IPs ermitteln
 CURRENT_IPV4=$(curl -s https://ipv4.icanhazip.com | tr -d '\n')
