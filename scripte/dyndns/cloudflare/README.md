@@ -1,10 +1,11 @@
 Dieses Repository enthält ein Bash-Skript (`dyndns_cloudflare.sh`) zur automatischen Aktualisierung von DNS-Einträgen (IPv4 und/oder IPv6) für eine angegebene Subdomain in Cloudflare. Das Skript sorgt dafür, dass der DNS-Eintrag immer mit der aktuellen öffentlichen IP-Adresse übereinstimmt und erstellt automatisch neue Einträge, falls diese noch nicht vorhanden sind.
 
 ## Features
+- **Mehrere Subdomains gleichzeitig aktualisieren.**
 - **IPv4 und IPv6 Unterstützung**: Aktualisierung von `A`- und/oder `AAAA`-Einträgen.
 - **Automatische Erstellung von Einträgen**: Fehlende DNS-Einträge werden automatisch angelegt.
 - **Systemd-kompatibel**: Entwickelt für den Einsatz als systemd-Dienst mit Timer für periodische Updates.
-- **Leichtgewichtige Implementierung**: Verwendung von Standardtools wie `curl`, `awk` und `grep`.
+- **Leichtgewichtige Implementierung**: Verwendung von Standardtools.
 
 ---
 
@@ -41,12 +42,20 @@ curl -o /data/scripte/dyndns_cloudflare.timer https://raw.githubusercontent.com/
 ```
 
 ### Schritt 3: Konfiguration anpassen
-Bearbeiten Sie die Datei `dyndns_cloudflare.conf`, um Ihre Schnittstellen zu definieren:
-- `API_TOKEN`: Dein Cloudflare API-Token.
-- `RECORD_NAME`: Die zu aktualisierende Subdomain (z. B. `subdomain.example.com`).
-- `DNS_TYPES`: Gibt an, welche DNS-Typen aktualisiert werden (z. B. `("A" "AAAA")` für IPv4 und IPv6).
-- `TTL`: Time-to-Live-Wert (z. B. `60` für automatisch verwaltetes TTL).
-- `PROXIED`: Aktiviert oder deaktiviert Cloudflare Proxy (`true` oder `false`).
+Bearbeiten Sie die Datei `dyndns_cloudflare.conf`:
+```bash
+# Cloudflare API-Token
+API_TOKEN="dein_api_token"
+
+# Liste der zu aktualisierenden Subdomains mit DNS-Typen und Proxy-Status
+# Format: "Subdomain DNS-Typen (A oder AAAA oder A,AAAA) Proxy (true/false)"
+"sub1.example.com A false"
+"sub2.example.net AAAA false"
+"sub3.example.org A,AAAA false"
+
+# TTL-Wert für alle DNS-Einträge
+TTL=60
+```
 
 ### Schritt 4: Systemd konfigurieren
 Verlinke die heruntergeladenen Dateien ins Systemd-Verzeichnis:
