@@ -7,7 +7,6 @@ CONFIG_FILE="$(dirname "$(realpath "$0")")/dyndns_cloudflare.conf"
 
 # Prüfen, ob die Konfigurationsdatei existiert
 if [[ -f "$CONFIG_FILE" ]]; then
-    # Konfigurationsdatei laden
     source "$CONFIG_FILE"
 else
     echo "Konfigurationsdatei nicht gefunden: $CONFIG_FILE"
@@ -23,95 +22,121 @@ if [ -z "$CURRENT_IPV4" ] && [ -z "$CURRENT_IPV6" ]; then
     exit 1
 fi
 
-# Domainname aus RECORD_NAME extrahieren
-DOMAIN_NAME=$(echo "$RECORD_NAME" | awk -F. '{print $(NF-1)"."$NF}')
+# Funktion zur Ermittlung der Zone-ID für eine Domain
+get_zone_id() {
+    local domain=$1
+    local response=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$domain" \
+        -H "Authorization: Bearer $API_TOKEN" \
+        -H "Content-Type: application/json")
 
-# Zone-ID automatisch ermitteln
-ZONE_RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=$DOMAIN_NAME" \
-    -H "Authorization: Bearer $API_TOKEN" \
-    -H "Content-Type: application/json")
+    echo "$response" | grep -o '"id":"[^"]*"' | head -n 1 | sed 's/"id":"\([^"]*\)"/\1/'
+}
 
-ZONE_ID=$(echo "$ZONE_RESPONSE" | grep -o '"id":"[^"]*"' | head -n 1 | sed 's/"id":"\([^"]*\)"/\1/')
-
-if [ -z "$ZONE_ID" ]; then
-    echo "Fehler: Zone-ID für $DOMAIN_NAME konnte nicht ermittelt werden."
-    exit 1
-fi
+# Funktion zur Extraktion der Hauptdomain aus einer Subdomain
+extract_domain() {
+    local subdomain=$1
+    echo "$subdomain" | awk -F'.' '{print $(NF-1)"."$NF}'
+}
 
 # Funktion zum Erstellen eines neuen DNS-Records
 create_record() {
     local type=$1
-    local current_ip=$2
+    local record_name=$2
+    local current_ip=$3
+    local zone_id=$4
+    local proxied=$5
 
     if [ -z "$current_ip" ]; then
         echo "Keine IP-Adresse für Typ $type vorhanden. Überspringe..."
         return
     fi
 
-    CREATE_RESPONSE=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
+    local response=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records" \
         -H "Authorization: Bearer $API_TOKEN" \
         -H "Content-Type: application/json" \
-        --data "{\"type\":\"$type\",\"name\":\"$RECORD_NAME\",\"content\":\"$current_ip\",\"ttl\":$TTL,\"proxied\":$PROXIED}")
+        --data "{\"type\":\"$type\",\"name\":\"$record_name\",\"content\":\"$current_ip\",\"ttl\":$TTL,\"proxied\":$proxied}")
 
-    SUCCESS=$(echo "$CREATE_RESPONSE" | grep -o '"success":true')
+    local success=$(echo "$response" | grep -o '"success":true')
 
-    if [ "$SUCCESS" == '"success":true' ]; then
-        echo "Ein neuer $type-Record für $RECORD_NAME wurde erfolgreich mit $current_ip erstellt."
+    if [ "$success" == '"success":true' ]; then
+        echo "Neuer $type-Record für $record_name erfolgreich mit $current_ip erstellt."
     else
-        echo "Fehler beim Erstellen des $type-Records: $(echo "$CREATE_RESPONSE" | grep -o '"message":"[^"]*"' | sed 's/"message":"\([^"]*\)"/\1/')"
+        echo "Fehler beim Erstellen des $type-Records für $record_name: $(echo "$response" | grep -o '"message":"[^"]*"' | sed 's/"message":"\([^"]*\)"/\1/')"
     fi
 }
 
-# Funktion zum Aktualisieren eines DNS-Records
+# Funktion zum Aktualisieren eines bestehenden DNS-Records
 update_record() {
     local type=$1
-    local current_ip=$2
+    local record_name=$2
+    local current_ip=$3
+    local zone_id=$4
+    local proxied=$5
 
     if [ -z "$current_ip" ]; then
         echo "Keine IP-Adresse für Typ $type vorhanden. Überspringe..."
         return
     fi
 
-    # Aktuellen DNS-Record abrufen
-    RECORD=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?type=$type&name=$RECORD_NAME" \
+    # Bestehenden DNS-Record abrufen
+    local response=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records?type=$type&name=$record_name" \
         -H "Authorization: Bearer $API_TOKEN" \
         -H "Content-Type: application/json")
 
-    RECORD_ID=$(echo "$RECORD" | grep -o '"id":"[^"]*"' | head -n 1 | sed 's/"id":"\([^"]*\)"/\1/')
-    RECORD_IP=$(echo "$RECORD" | grep -o '"content":"[^"]*"' | sed 's/"content":"\([^"]*\)"/\1/')
+    local record_id=$(echo "$response" | grep -o '"id":"[^"]*"' | head -n 1 | sed 's/"id":"\([^"]*\)"/\1/')
+    local record_ip=$(echo "$response" | grep -o '"content":"[^"]*"' | sed 's/"content":"\([^"]*\)"/\1/')
 
-    if [ -z "$RECORD_ID" ]; then
-        echo "Der $type-Record für $RECORD_NAME existiert nicht. Erstelle neuen Eintrag..."
-        create_record "$type" "$current_ip"
+    if [ -z "$record_id" ]; then
+        echo "Der $type-Record für $record_name existiert nicht. Erstelle neuen Eintrag..."
+        create_record "$type" "$record_name" "$current_ip" "$zone_id" "$proxied"
         return
     fi
 
     # Prüfen, ob die IP aktualisiert werden muss
-    if [ "$current_ip" == "$RECORD_IP" ]; then
-        echo "Die IP des $type-Records ist bereits aktuell: $current_ip"
+    if [ "$current_ip" == "$record_ip" ]; then
+        echo "Die IP des $type-Records für $record_name ist bereits aktuell: $current_ip"
         return
     fi
 
     # DNS-Record aktualisieren
-    UPDATE_RESPONSE=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$RECORD_ID" \
+    local update_response=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records/$record_id" \
         -H "Authorization: Bearer $API_TOKEN" \
         -H "Content-Type: application/json" \
-        --data "{\"type\":\"$type\",\"name\":\"$RECORD_NAME\",\"content\":\"$current_ip\",\"ttl\":$TTL,\"proxied\":$PROXIED}")
+        --data "{\"type\":\"$type\",\"name\":\"$record_name\",\"content\":\"$current_ip\",\"ttl\":$TTL,\"proxied\":$proxied}")
 
-    SUCCESS=$(echo "$UPDATE_RESPONSE" | grep -o '"success":true')
+    local success=$(echo "$update_response" | grep -o '"success":true')
 
-    if [ "$SUCCESS" == '"success":true' ]; then
-        echo "Der $type-Record $RECORD_NAME wurde erfolgreich auf $current_ip aktualisiert."
+    if [ "$success" == '"success":true' ]; then
+        echo "Der $type-Record für $record_name wurde erfolgreich auf $current_ip aktualisiert."
     else
-        echo "Fehler bei der Aktualisierung des $type-Records: $(echo "$UPDATE_RESPONSE" | grep -o '"message":"[^"]*"' | sed 's/"message":"\([^"]*\)"/\1/')"
+        echo "Fehler bei der Aktualisierung des $type-Records für $record_name: $(echo "$update_response" | grep -o '"message":"[^"]*"' | sed 's/"message":"\([^"]*\)"/\1/')"
     fi
 }
 
-# IPv4 und IPv6 separat aktualisieren oder erstellen
-for DNS_TYPE in "${DNS_TYPES[@]}"; do
-    if [ "$DNS_TYPE" == "A" ]; then
-        update_record "A" "$CURRENT_IPV4"
-    elif [ "$DNS_TYPE" == "AAAA" ]; then
-        update_record "AAAA" "$CURRENT_IPV6"
+# Verarbeitung aller Subdomains aus der Konfiguration
+for record in "${DNS_RECORDS[@]}"; do
+    read -r record_name dns_types proxied <<< "$record"
+
+    # Automatische Extraktion der Domain aus der Subdomain
+    domain=$(extract_domain "$record_name")
+
+    echo "Bearbeite $record_name ($domain)..."
+
+    # Zone-ID für die Domain ermitteln
+    zone_id=$(get_zone_id "$domain")
+
+    if [ -z "$zone_id" ]; then
+        echo "Fehler: Zone-ID für $domain konnte nicht ermittelt werden."
+        continue
     fi
+
+    # DNS-Typen (A oder AAAA oder beide) verarbeiten
+    IFS=',' read -ra types <<< "$dns_types"
+    for type in "${types[@]}"; do
+        if [[ "$type" == "A" ]]; then
+            update_record "A" "$record_name" "$CURRENT_IPV4" "$zone_id" "$proxied"
+        elif [[ "$type" == "AAAA" ]]; then
+            update_record "AAAA" "$record_name" "$CURRENT_IPV6" "$zone_id" "$proxied"
+        fi
+    done
 done
