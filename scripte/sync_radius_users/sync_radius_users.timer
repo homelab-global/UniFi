@@ -1,0 +1,11 @@
+[Unit]
+Description=Timer for syncing FreeRADIUS users from GitHub
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Unit=sync_radius_users.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target
