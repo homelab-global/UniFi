@@ -1,0 +1,8 @@
+[Unit]
+Description=Sync FreeRADIUS Users from GitHub
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/data/scripte/sync_radius_users.sh
