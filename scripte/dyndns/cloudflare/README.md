@@ -34,7 +34,7 @@ Lade die benötigten Dateien herunter und stelle sicher, dass sie ausführbar si
 ```bash
 curl -o /data/scripte/dyndns_cloudflare.sh https://raw.githubusercontent.com/homelab-global/UniFi/refs/heads/main/scripte/dyndns/cloudflare/dyndns_cloudflare.sh
 chmod +x /data/scripte/dyndns_cloudflare.sh
-curl -o /data/scripte/dyndns_cloudflare.conf https://raw.githubusercontent.com/homelab-global/UniFi/refs/heads/main/scripte/dyndns/cloudflare/dyndns_cloudflare.sh
+curl -o /data/scripte/dyndns_cloudflare.conf https://raw.githubusercontent.com/homelab-global/UniFi/refs/heads/main/scripte/dyndns/cloudflare/dyndns_cloudflare.conf
 chmod 600 /data/scripte/dyndns_cloudflare.conf
 curl -o /data/scripte/dyndns_cloudflare.service https://raw.githubusercontent.com/homelab-global/UniFi/refs/heads/main/scripte/dyndns/cloudflare/dyndns_cloudflare.service
 curl -o /data/scripte/dyndns_cloudflare.timer https://raw.githubusercontent.com/homelab-global/UniFi/refs/heads/main/scripte/dyndns/cloudflare/dyndns_cloudflare.timer
